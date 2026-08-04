@@ -1,0 +1,27 @@
+name: Apply XC manifests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "manifests/**"
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    environment: xc-production
+    steps:
+      - uses: actions/checkout@v6
+      - name: Apply committed manifests
+        id: xcsh
+        uses: f5-sales-demo/xcsh-action@v1
+        with:
+          operation: apply
+          files: manifests/
+          recursive: true
+          api-url: ${{ secrets.XCSH_API_URL }}
+          api-token: ${{ secrets.XCSH_API_TOKEN }}
+          namespace: ${{ vars.XCSH_NAMESPACE }}

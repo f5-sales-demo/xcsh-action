@@ -1,0 +1,29 @@
+{
+  "name": "xcsh-action",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Run deterministic xcsh manifest operations in GitHub Actions",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "ncc build src/index.ts --minify --source-map --out dist",
+    "check-dist": "npm run build && git diff --exit-code -- dist",
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "verify": "npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "@actions/core": "3.0.1",
+    "@actions/glob": "0.7.0",
+    "@actions/tool-cache": "4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "@vercel/ncc": "0.44.1",
+    "tsx": "4.23.5",
+    "typescript": "5.9.3"
+  }
+}
