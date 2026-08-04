@@ -16,9 +16,11 @@
 ## Common file behavior
 
 - `files` may contain repeated JSON/YAML paths, directories, and include globs.
+- JSON arrays and multi-document YAML files may contain multiple resource manifests.
 - `recursive: true` maps to the intent of kubectl's recursive `-R` file traversal.
 - `namespace` overrides manifest namespaces like `kubectl -n`, but it is an XC namespace—not a Kubernetes namespace.
 - `manifest` supplies inline JSON/YAML without shell interpolation or stdin piping.
+- Unlike kubectl, the Action does not fetch `-f` URLs or accept `-` as a file entry; commit the manifest or use `manifest` so workflow input remains explicit.
 - Batch manifests are prevalidated before network operations, preventing a partially executed batch when one manifest is invalid.
 
 ## Authentication model

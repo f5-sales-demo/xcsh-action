@@ -23,6 +23,8 @@ xcsh is spawned directly with `shell: false`. Manifest paths and other inputs ar
 
 The Action masks `api-token` and `github-token`. It does not include credentials in result JSON, step summaries, cache keys, or command arguments. xcsh receives XC credentials only through `XCSH_API_URL`, `XCSH_API_TOKEN`, and `XCSH_NAMESPACE`.
 
+Result reports from `get`, `export`, and mutation operations can contain live resource configuration. Treat the `result` output and `result-file` as configuration data: do not print them in public logs, and apply an appropriate retention period and access policy if they are uploaded as artifacts.
+
 ## Delete behavior
 
 `delete` is intentionally non-interactive for automation. Protect delete workflows with branch restrictions, environments, least-privilege XC API tokens, and an explicit manifest or resource identity. Use `dry-run: client` before enabling mutation when introducing a new deletion workflow.

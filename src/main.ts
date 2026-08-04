@@ -63,13 +63,6 @@ export async function run(): Promise<void> {
   }
 
   const internalResultFile = path.join(runDirectory, "result.json");
-  const asset = await resolveAsset({
-    versionInput: inputs.version,
-    platform: process.platform,
-    architecture: process.arch,
-    ...(inputs.githubToken ? { githubToken: inputs.githubToken } : {}),
-  });
-  const installed = await installXcsh(asset);
   if (inputs.exportFile) {
     inputs.exportFile = path.resolve(
       inputs.workingDirectory,
@@ -82,6 +75,13 @@ export async function run(): Promise<void> {
     manifestFiles,
     internalResultFile,
   );
+  const asset = await resolveAsset({
+    versionInput: inputs.version,
+    platform: process.platform,
+    architecture: process.arch,
+    ...(inputs.githubToken ? { githubToken: inputs.githubToken } : {}),
+  });
+  const installed = await installXcsh(asset);
   const environment: NodeJS.ProcessEnv = { ...process.env };
   if (inputs.apiUrl) environment.XCSH_API_URL = inputs.apiUrl;
   if (inputs.apiToken) environment.XCSH_API_TOKEN = inputs.apiToken;

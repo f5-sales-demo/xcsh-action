@@ -1,0 +1,34 @@
+---
+title: xcsh GitHub Action
+description: Run deterministic F5 Distributed Cloud manifest operations in GitHub Actions.
+---
+
+The xcsh GitHub Action applies F5 Distributed Cloud JSON and YAML manifests
+from a workflow without starting the xcsh AI assistant or consuming an LLM
+turn. It supports programmatic `apply`, `create`, `update`, `get`, `delete`,
+`diff`, `export`, and `validate` operations.
+
+## Start with a committed manifest
+
+```yaml
+- uses: actions/checkout@v6
+- name: Apply XC manifests
+  uses: f5-sales-demo/xcsh-action@v1
+  with:
+    operation: apply
+    files: manifests/
+    recursive: true
+    api-url: ${{ secrets.XCSH_API_URL }}
+    api-token: ${{ secrets.XCSH_API_TOKEN }}
+    namespace: ${{ vars.XCSH_NAMESPACE }}
+```
+
+Use `validate` without credentials on pull requests. Run mutating operations
+only from a protected branch or an approved deployment environment.
+
+## Documentation
+
+- [kubectl file-operation parity](./kubectl-parity/)
+- [Security model](./security/)
+- [Design and prior art](./design/)
+- [Repository and complete examples](https://github.com/f5-sales-demo/xcsh-action)

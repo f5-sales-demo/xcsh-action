@@ -43,3 +43,60 @@ test("requires a supported platform and exact version", () => {
     /exact semantic version/u,
   );
 });
+
+test("resolves exact overrides only from immutable release digests", async () => {
+  const lock = await loadLock();
+  const originalFetch = globalThis.fetch;
+  const requestedUrls: string[] = [];
+  try {
+    globalThis.fetch = (async (input: string | URL | Request) => {
+      requestedUrls.push(String(input));
+      return new Response(
+        JSON.stringify({
+          tag_name: "v21.0.0",
+          draft: false,
+          immutable: true,
+          assets: [
+            {
+              name: "xcsh-linux-x64.tar.gz",
+              digest: `sha256:${"a".repeat(64)}`,
+            },
+            { name: "xcsh-linux-x64", digest: `sha256:${"b".repeat(64)}` },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }) as typeof fetch;
+    const asset = await resolveAsset({
+      versionInput: "v21.0.0",
+      platform: "linux",
+      architecture: "x64",
+      lock,
+    });
+    assert.equal(asset.archiveSha256, "a".repeat(64));
+    assert.equal(asset.binarySha256, "b".repeat(64));
+    assert.match(requestedUrls[0] as string, /releases\/tags\/v21\.0\.0$/u);
+
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          tag_name: "v21.0.1",
+          draft: false,
+          immutable: false,
+          assets: [],
+        }),
+        { status: 200 },
+      )) as typeof fetch;
+    await assert.rejects(
+      resolveAsset({
+        versionInput: "v21.0.1",
+        platform: "linux",
+        architecture: "x64",
+        lock,
+      }),
+      /invalid release metadata/u,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
