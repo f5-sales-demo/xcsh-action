@@ -1,4 +1,4 @@
-name: xcsh
+name: xcsh Manifest Automation
 description: Apply F5 Distributed Cloud JSON or YAML manifests without an LLM turn
 author: f5-sales-demo
 branding:
