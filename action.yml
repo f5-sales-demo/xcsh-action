@@ -1,0 +1,116 @@
+name: xcsh
+description: Apply F5 Distributed Cloud JSON or YAML manifests without an LLM turn
+author: f5-sales-demo
+branding:
+  icon: terminal
+  color: red
+
+inputs:
+  operation:
+    description: "Deterministic operation: apply, create, update, get, delete, diff, export, or validate"
+    required: false
+    default: apply
+  files:
+    description: Newline-delimited manifest paths, directories, or include glob patterns
+    required: false
+  manifest:
+    description: Inline JSON or YAML manifest content; use instead of stdin
+    required: false
+  recursive:
+    description: Read manifest directories recursively
+    required: false
+    default: "false"
+  namespace:
+    description: Override the namespace in every manifest
+    required: false
+  dry-run:
+    description: "Dry-run mode: none or client"
+    required: false
+    default: none
+  output:
+    description: "CLI output format: auto, json, yaml, table, or wide"
+    required: false
+    default: auto
+  result-file:
+    description: Path to copy the aggregate JSON report to, relative to working-directory
+    required: false
+  export-file:
+    description: File to write exported manifests to, relative to working-directory
+    required: false
+  resource-kind:
+    description: Resource kind for get, delete, or export without manifest files
+    required: false
+  resource-name:
+    description: Resource name for get, delete, or export
+    required: false
+  all:
+    description: Export every supported resource kind
+    required: false
+    default: "false"
+  working-directory:
+    description: Directory used to resolve relative paths
+    required: false
+    default: .
+  xcsh-version:
+    description: Use locked or an exact xcsh version such as v20.4.0
+    required: false
+    default: locked
+  api-url:
+    description: F5 Distributed Cloud API base URL; sets XCSH_API_URL for xcsh
+    required: false
+  api-token:
+    description: F5 Distributed Cloud API token; masked and passed as XCSH_API_TOKEN
+    required: false
+  github-token:
+    description: GitHub token used only to resolve digests for an xcsh-version override
+    required: false
+
+outputs:
+  result:
+    description: Compact aggregate xcsh report JSON
+  result-file:
+    description: Absolute path to the aggregate xcsh report JSON file
+  total:
+    description: Total result count
+  succeeded:
+    description: Successful result count
+  failed:
+    description: Failed result count
+  changed:
+    description: Whether the operation created, updated, deleted, or detected a difference
+  created:
+    description: Created resource count
+  updated:
+    description: Updated resource count
+  unchanged:
+    description: Unchanged resource count
+  deleted:
+    description: Deleted resource count
+  dry-run:
+    description: Dry-run resource count
+  new:
+    description: New resource count reported by diff
+  different:
+    description: Different resource count reported by diff
+  identical:
+    description: Identical resource count reported by diff
+  valid:
+    description: Valid manifest count
+  found:
+    description: Found resource count
+  listed:
+    description: Listed resource result count
+  exported:
+    description: Exported manifest count
+  error:
+    description: Error result count
+  skipped:
+    description: Skipped result count
+  xcsh-version:
+    description: Exact installed xcsh version
+  xcsh-path:
+    description: Absolute path to the verified xcsh executable
+
+runs:
+  using: node24
+  main: dist/index.js

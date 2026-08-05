@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "repository": "f5-sales-demo/xcsh",
+  "version": "v20.4.0",
+  "platforms": {
+    "linux-x64": {
+      "archiveName": "xcsh-linux-x64.tar.gz",
+      "archiveSha256": "76a64e2931a5db2fd640d9ce1de45f6179f9bf593a5c9a929ea0b8199a8ac77f",
+      "archiveEntryName": "xcsh",
+      "binaryName": "xcsh-linux-x64",
+      "binarySha256": "f2e978bac1a500bc89c19d62d6fb0ebf17e7e15393f658a28685a9fee23efff3",
+      "archiveKind": "tar.gz"
+    },
+    "linux-arm64": {
+      "archiveName": "xcsh-linux-arm64.tar.gz",
+      "archiveSha256": "ce96106b5e26d7d542c886c4f264aa4cde2d379fa28d7a1037a35d67aa7d7f5a",
+      "archiveEntryName": "xcsh",
+      "binaryName": "xcsh-linux-arm64",
+      "binarySha256": "b9426ea5559ac35308e986088a99f68f2f0b24959b0d7b5b2ee62926f5f40f10",
+      "archiveKind": "tar.gz"
+    },
+    "darwin-x64": {
+      "archiveName": "xcsh-darwin-x64.zip",
+      "archiveSha256": "61c9d29d8931904aa4facf1880d64abce6bb8362344e6e4ca67ea36b14b3ac83",
+      "archiveEntryName": "xcsh",
+      "binaryName": "xcsh-darwin-x64",
+      "binarySha256": "a3f18ca91b67b38a981024a811670b41067ec55dda431c7dd4a8a13be2b38e40",
+      "archiveKind": "zip"
+    },
+    "darwin-arm64": {
+      "archiveName": "xcsh-darwin-arm64.zip",
+      "archiveSha256": "964b723b42bf203e303e7035aa770b75bca4334dd43a33fa20fe42ee330746da",
+      "archiveEntryName": "xcsh",
+      "binaryName": "xcsh-darwin-arm64",
+      "binarySha256": "9d2ae10a02fc3dc1bdfdd4b70f84714d916c8a4287b3927623397f8b8ad2adcf",
+      "archiveKind": "zip"
+    },
+    "win32-x64": {
+      "archiveName": "xcsh-windows-x64.exe",
+      "archiveSha256": "09df6077b6c0c45cd2450ae82f68578e6b9f5e8672113b68b0445b60f0b2382a",
+      "archiveEntryName": "xcsh-windows-x64.exe",
+      "binaryName": "xcsh-windows-x64.exe",
+      "binarySha256": "09df6077b6c0c45cd2450ae82f68578e6b9f5e8672113b68b0445b60f0b2382a",
+      "archiveKind": "executable"
+    }
+  }
+}

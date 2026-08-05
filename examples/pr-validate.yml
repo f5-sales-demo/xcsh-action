@@ -1,0 +1,26 @@
+name: Validate XC manifests
+
+on:
+  pull_request:
+    paths:
+      - "manifests/**"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Validate manifests without credentials
+        uses: f5-sales-demo/xcsh-action@v1
+        with:
+          operation: validate
+          files: |
+            manifests/**/*.json
+            manifests/**/*.yaml
+            manifests/**/*.yml
+          recursive: true
