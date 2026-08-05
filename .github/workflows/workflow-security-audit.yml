@@ -1,0 +1,50 @@
+---
+name: Workflow Security Audit
+
+# Scheduled zizmor audit over ALL workflow files in this repo.
+#
+# WHY THIS EXISTS: the `Lint Code Base` gate runs super-linter with
+# VALIDATE_ALL_CODEBASE=false, so its zizmor pass only audits workflow files a PR
+# actually CHANGED. A workflow that is never edited is therefore never audited, and
+# its findings can sit indefinitely. That is not hypothetical: vscode-xcsh's ci.yml
+# carried 4 high-severity `template-injection` vectors (attacker-controlled
+# `repository_dispatch` client_payload interpolated into a `run:` body) plus 5
+# `excessive-permissions` findings, invisible until an unrelated PR happened to touch
+# the file. This job closes that blind spot by auditing every workflow on a schedule.
+#
+# The scheduled gate rejects every finding and refuses both configuration and inline
+# suppressions, so low-severity regressions cannot accumulate between unrelated edits.
+on:
+  schedule:
+    # Weekly, off-peak, deliberately not on the hour.
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+      - 'zizmor.yaml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workflow-security-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: Audit workflows (zizmor)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Reject every workflow security finding
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          targets=(.github/workflows/ workflows/*.yml)
+          pipx run zizmor --no-config --no-ignores --persona=auditor "${targets[@]}"
