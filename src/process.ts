@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn } from 'node:child_process';
 
 export interface ProcessResult {
   exitCode: number;
@@ -15,13 +15,13 @@ export async function runExecutable(
       cwd: options.cwd,
       env: options.env,
       shell: false,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     });
     child.stdout.pipe(process.stdout);
     child.stderr.pipe(process.stderr);
-    child.once("error", reject);
-    child.once("close", (code, signal) => {
+    child.once('error', reject);
+    child.once('close', (code, signal) => {
       const result: ProcessResult = { exitCode: code ?? 1 };
       if (signal) result.signal = signal;
       resolve(result);

@@ -14,7 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: xc-production
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Apply committed manifests
         id: xcsh
         uses: f5-sales-demo/xcsh-action@v1

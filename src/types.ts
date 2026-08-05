@@ -1,17 +1,8 @@
-export const OPERATIONS = [
-  "apply",
-  "create",
-  "update",
-  "get",
-  "delete",
-  "diff",
-  "export",
-  "validate",
-] as const;
+export const OPERATIONS = ['apply', 'create', 'update', 'get', 'delete', 'diff', 'export', 'validate'] as const;
 
 export type Operation = (typeof OPERATIONS)[number];
-export type OutputFormat = "json" | "yaml" | "table" | "wide";
-export type ArchiveKind = "tar.gz" | "zip" | "executable";
+export type OutputFormat = 'json' | 'yaml' | 'table' | 'wide';
+export type ArchiveKind = 'tar.gz' | 'zip' | 'executable';
 
 export interface ActionInputs {
   operation: Operation;
@@ -19,7 +10,7 @@ export interface ActionInputs {
   inlineManifest?: string;
   recursive: boolean;
   namespace?: string;
-  dryRun?: "client";
+  dryRun?: 'client';
   outputFormat: OutputFormat;
   resultFile?: string;
   exportFile?: string;
@@ -36,7 +27,7 @@ export interface ActionInputs {
 export interface ResourceOperationItem {
   index: number;
   status: string;
-  action?: "create" | "update" | "delete";
+  action?: 'create' | 'update' | 'delete';
   diff?: { hasDifferences?: boolean };
   isNew?: boolean;
   [key: string]: unknown;
@@ -65,7 +56,7 @@ export interface LockedAsset {
 
 export interface XcshLock {
   schemaVersion: 1;
-  repository: "f5-sales-demo/xcsh";
+  repository: 'f5-sales-demo/xcsh';
   version: string;
   platforms: Record<string, LockedAsset>;
 }

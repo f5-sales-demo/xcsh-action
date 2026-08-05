@@ -11,7 +11,9 @@ turn. It supports programmatic `apply`, `create`, `update`, `get`, `delete`,
 ## Start with a committed manifest
 
 ```yaml
-- uses: actions/checkout@v6
+- uses: actions/checkout@v7
+  with:
+    persist-credentials: false
 - name: Apply XC manifests
   uses: f5-sales-demo/xcsh-action@v1
   with:
@@ -31,4 +33,5 @@ only from a protected branch or an approved deployment environment.
 - [kubectl file-operation parity](./kubectl-parity/)
 - [Security model](./security/)
 - [Design and prior art](./design/)
+- [Complete input and output reference](https://github.com/f5-sales-demo/xcsh-action#inputs)
 - [Repository and complete examples](https://github.com/f5-sales-demo/xcsh-action)

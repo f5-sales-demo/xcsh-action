@@ -20,7 +20,9 @@ jobs:
   apply:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Apply manifests
         id: xcsh
         uses: f5-sales-demo/xcsh-action@v1
@@ -58,6 +60,28 @@ Use a credential-free `validate` job for pull requests, and reserve authenticate
 
 The `files` input is newline-delimited. It accepts JSON/YAML files, directories, and include globs. Set `recursive: true` for recursive directory reads. Use `manifest` for inline JSON/YAML; the Action deliberately does not pipe workflow data to a shell or to stdin.
 
+## Inputs
+
+| Input               | Default  | Purpose                                                                                     |
+| ------------------- | -------- | ------------------------------------------------------------------------------------------- |
+| `operation`         | `apply`  | `apply`, `create`, `update`, `get`, `delete`, `diff`, `export`, or `validate`               |
+| `files`             | —        | Newline-delimited manifest files, directories, or include globs                             |
+| `manifest`          | —        | Inline JSON or YAML manifest content                                                        |
+| `recursive`         | `false`  | Recursively read manifest directories                                                       |
+| `namespace`         | —        | Override the namespace in every manifest                                                    |
+| `dry-run`           | `none`   | `client` to calculate a supported mutation without changing a resource                      |
+| `output`            | `auto`   | `auto`, `json`, `yaml`, `table`, or `wide`; `auto` uses YAML for export and table otherwise |
+| `result-file`       | —        | Copy the aggregate JSON report to this path under `working-directory`                       |
+| `export-file`       | —        | Write exported manifests to this path under `working-directory`                             |
+| `resource-kind`     | —        | Resource kind for a file-free `get`, `delete`, or `export`                                  |
+| `resource-name`     | —        | Resource name for a targeted `get`, `delete`, or `export`                                   |
+| `all`               | `false`  | Export every supported resource kind                                                        |
+| `working-directory` | `.`      | Base directory for relative paths                                                           |
+| `xcsh-version`      | `locked` | Locked release or an exact version such as `v20.4.0`                                        |
+| `api-url`           | —        | F5 Distributed Cloud API base URL                                                           |
+| `api-token`         | —        | F5 Distributed Cloud API token; masked before execution                                     |
+| `github-token`      | —        | GitHub token used only to resolve digests for an exact `xcsh-version` override              |
+
 ## Authentication
 
 Authenticated operations use only the direct xcsh environment contract:
@@ -76,13 +100,32 @@ Every Action release pins a tested xcsh release in [xcsh.lock.json](xcsh.lock.js
 
 ## Outputs
 
-The Action always requests xcsh's stable aggregate JSON report. Important outputs are:
+The Action always requests xcsh's stable aggregate JSON report.
 
-- `result` and `result-file`: report JSON and its on-disk path.
-- `total`, `succeeded`, and `failed`: aggregate counts.
-- `created`, `updated`, `unchanged`, `deleted`, `dry-run`, `new`, `different`, and `identical`: status counts.
-- `changed`: `true` for mutations or detected differences.
-- `xcsh-version` and `xcsh-path`: verified tool provenance.
+| Output         | Value                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------- |
+| `result`       | Compact aggregate report JSON                                                         |
+| `result-file`  | Absolute path to the aggregate report                                                 |
+| `total`        | Total result count                                                                    |
+| `succeeded`    | Successful result count                                                               |
+| `failed`       | Failed result count                                                                   |
+| `changed`      | `true` when a mutation occurred or `diff` detected a difference                       |
+| `created`      | Created resource count                                                                |
+| `updated`      | Updated resource count                                                                |
+| `unchanged`    | Unchanged resource count                                                              |
+| `deleted`      | Deleted resource count                                                                |
+| `dry-run`      | Dry-run resource count                                                                |
+| `new`          | New resource count reported by `diff`                                                 |
+| `different`    | Different resource count reported by `diff`                                           |
+| `identical`    | Identical resource count reported by `diff`                                           |
+| `valid`        | Valid manifest count                                                                  |
+| `found`        | Found resource count                                                                  |
+| `listed`       | Listed resource result count                                                          |
+| `exported`     | Exported manifest count                                                               |
+| `error`        | Error result count                                                                    |
+| `skipped`      | Skipped result count                                                                  |
+| `xcsh-version` | Exact verified xcsh version                                                           |
+| `xcsh-path`    | Absolute path to the verified xcsh executable                                         |
 
 The step fails when xcsh reports an error. `diff` reports differences through `changed` and the `different`/`new` outputs instead of treating a difference as an execution failure.
 
