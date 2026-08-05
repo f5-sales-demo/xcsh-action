@@ -35,7 +35,6 @@ jobs:
           recursive: true
           api-url: ${{ secrets.XCSH_API_URL }}
           api-token: ${{ secrets.XCSH_API_TOKEN }}
-          namespace: ${{ vars.XCSH_NAMESPACE }}
       - name: Show result
         env:
           CHANGED: ${{ steps.xcsh.outputs.changed }}
