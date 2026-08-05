@@ -1,0 +1,11 @@
+---
+kind: healthcheck
+metadata:
+  name: xcsh-action-uat-healthcheck
+spec:
+  http_health_check:
+    path: /health
+  interval: 15
+  timeout: 3
+  unhealthy_threshold: 3
+  healthy_threshold: 2

@@ -1,0 +1,548 @@
+---
+name: Live xcsh CRUD UAT
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Run the full matrix or clean up the fixed UAT resource
+        required: true
+        default: full
+        type: choice
+        options:
+          - full
+          - cleanup-only
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xcsh-action-live-se-uat
+  cancel-in-progress: false
+
+env:
+  UAT_KIND: healthcheck
+  UAT_NAME: xcsh-action-uat-healthcheck
+
+jobs:
+  reject-unprotected-ref:
+    name: Reject an unprotected ref
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require main
+        run: |
+          echo "::error::Live UAT must be dispatched from protected main"
+          exit 1
+
+  uat:
+    name: ${{ inputs.mode == 'cleanup-only' && 'Cleanup' || 'Full CRUD matrix' }}
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: se-uat
+    env:
+      SAFE_TO_CLEANUP: "false"
+      XCSH_API_URL: ${{ vars.XCSH_API_URL }}
+      XCSH_NAMESPACE: ${{ vars.XCSH_NAMESPACE }}
+    steps:
+      - name: Check out protected main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify UAT environment contract
+        env:
+          XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for variable in XCSH_API_URL XCSH_API_TOKEN XCSH_NAMESPACE; do
+            if [[ -z "${!variable:-}" ]]; then
+              echo "::error::The se-uat environment is missing $variable"
+              exit 1
+            fi
+          done
+
+      - name: Install exact xcsh and validate an inline manifest
+        id: install
+        uses: f5-sales-demo/xcsh-action@97ff16f0ce33db6535a16cfe008b71980580ed38 # v1.0.1
+        with:
+          operation: validate
+          manifest: |
+            kind: healthcheck
+            metadata:
+              name: xcsh-action-uat-healthcheck
+            spec:
+              http_health_check:
+                path: /health
+              interval: 15
+              timeout: 3
+              unhealthy_threshold: 3
+              healthy_threshold: 2
+          namespace: example
+          output: yaml
+          xcsh-version: v20.4.5
+          github-token: ${{ github.token }}
+
+      - name: Assert exact xcsh override
+        env:
+          INSTALLED_VERSION: ${{ steps.install.outputs.xcsh-version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$INSTALLED_VERSION" == "v20.4.5" ]]
+
+      - name: Validate recursive YAML and JSON with locked xcsh
+        if: inputs.mode == 'full'
+        id: locked-validate
+        uses: f5-sales-demo/xcsh-action@97ff16f0ce33db6535a16cfe008b71980580ed38 # v1.0.1
+        with:
+          operation: validate
+          files: |
+            tests/uat/healthcheck-*.*
+            tests/uat/nested
+          recursive: true
+          output: json
+          result-file: .uat/validate-report.json
+          working-directory: .
+
+      - name: Assert recursive validation
+        if: inputs.mode == 'full'
+        env:
+          LOCKED_VERSION: ${{ steps.locked-validate.outputs.xcsh-version }}
+          REPORT: ${{ steps.locked-validate.outputs.result-file }}
+          VALID: ${{ steps.locked-validate.outputs.valid }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$LOCKED_VERSION" == "v20.4.0" ]]
+          [[ "$VALID" == "3" ]]
+          jq -e '.operation == "validate" and .success == true and .counts.valid == 3' "$REPORT" >/dev/null
+
+      - name: Confirm the UAT resource is absent
+        if: inputs.mode == 'full'
+        env:
+          CLI: ${{ steps.install.outputs.xcsh-path }}
+          XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          report="$RUNNER_TEMP/preflight.json"
+          set +e
+          "$CLI" get "$UAT_KIND" "$UAT_NAME" -o table --result-file "$report" >/dev/null
+          status=$?
+          set -e
+          if [[ $status -eq 0 ]]; then
+            echo "::error::$UAT_KIND/$UAT_NAME already exists; dispatch cleanup-only after confirming ownership"
+            exit 1
+          fi
+          jq -e '
+            .success == false and
+            .counts.failed == 1 and
+            .results[0].status == "error" and
+            .results[0].error.kind == "not_found"
+          ' "$report" >/dev/null
+          echo "SAFE_TO_CLEANUP=true" >>"$GITHUB_ENV"
+
+      - name: Dry-run create with explicit connection inputs
+        if: inputs.mode == 'full'
+        id: create-dry-run
+        uses: f5-sales-demo/xcsh-action@97ff16f0ce33db6535a16cfe008b71980580ed38 # v1.0.1
+        with:
+          operation: create
+          files: healthcheck-base.yaml
+          dry-run: client
+          output: json
+          result-file: .reports/create-dry-run.json
+          working-directory: tests/uat
+          api-url: ${{ vars.XCSH_API_URL }}
+          api-token: ${{ secrets.XCSH_API_TOKEN }}
+
+      - name: Assert create dry-run
+        if: inputs.mode == 'full'
+        env:
+          CHANGED: ${{ steps.create-dry-run.outputs.changed }}
+          DRY_RUN: ${{ steps.create-dry-run.outputs.dry-run }}
+          REPORT: ${{ steps.create-dry-run.outputs.result-file }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CHANGED" == "true" ]]
+          [[ "$DRY_RUN" == "1" ]]
+          jq -e '.results[0].status == "dry-run" and .results[0].action == "create"' "$REPORT" >/dev/null
+
+      - name: Create from YAML using environment authentication
+        if: inputs.mode == 'full'
+        id: create
+        uses: f5-sales-demo/xcsh-action@97ff16f0ce33db6535a16cfe008b71980580ed38 # v1.0.1
+        env:
+          XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+        with:
+          operation: create
+          files: tests/uat/healthcheck-base.yaml
+
+      - name: Assert created
+        if: inputs.mode == 'full'
+        env:
+          CREATED: ${{ steps.create.outputs.created }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CREATED" == "1" ]]
+
+      - name: Get by manifest
+        if: inputs.mode == 'full'
+        id: get-manifest
+        uses: f5-sales-demo/xcsh-action@97ff16f0ce33db6535a16cfe008b71980580ed38 # v1.0.1
+        env:
+          XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+        with:
+          operation: get
+          files: tests/uat/healthcheck-base.yaml
+          output: table
+
+      - name: Get by resource identity
+        if: inputs.mode == 'full'
+        id: get-identity
+        uses: f5-sales-demo/xcsh-action@97ff16f0ce33db6535a16cfe008b71980580ed38 # v1.0.1
+        env:
+          XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+        with:
+          operation: get
+          resource-kind: healthcheck
+          resource-name: xcsh-action-uat-healthcheck
+          output: wide
+
+      - name: Assert both get forms
+        if: inputs.mode == 'full'
+        env:
+          FILE_FOUND: ${{ steps.get-manifest.outputs.found }}
+          IDENTITY_FOUND: ${{ steps.get-identity.outputs.found }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$FILE_FOUND" == "1" ]]
+          [[ "$IDENTITY_FOUND" == "1" ]]
+
+      - name: Confirm duplicate create fails
+        if: inputs.mode == 'full'
+        id: duplicate-create
+        continue-on-error: true
+        uses: f5-sales-demo/xcsh-action@97ff16f0ce33db6535a16cfe008b71980580ed38 # v1.0.1
+        env:
+          XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+        with:
+          operation: create
+          files: tests/uat/healthcheck-base.yaml
+
+      - name: Assert duplicate create failure
+        if: inputs.mode == 'full'
+        env:
+          OUTCOME: ${{ steps.duplicate-create.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$OUTCOME" == "failure" ]]
+
+      - name: Apply identical YAML
+        if: inputs.mode == 'full'
+        id: apply-unchanged
+        uses: f5-sales-demo/xcsh-action@97ff16f0ce33db6535a16cfe008b71980580ed38 # v1.0.1
+        env:
+          XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+        with:
+          operation: apply
+          files: tests/uat/healthcheck-base.yaml
+
+      - name: Assert unchanged apply
+        if: inputs.mode == 'full'
+        env:
+          CHANGED: ${{ steps.apply-unchanged.outputs.changed }}
+          UNCHANGED: ${{ steps.apply-unchanged.outputs.unchanged }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CHANGED" == "false" ]]
+          [[ "$UNCHANGED" == "1" ]]
+
+      - name: Diff identical YAML
+        if: inputs.mode == 'full'
+        id: diff-identical
+        uses: f5-sales-demo/xcsh-action@97ff16f0ce33db6535a16cfe008b71980580ed38 # v1.0.1
+        env:
+          XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+        with:
+          operation: diff
+          files: tests/uat/healthcheck-base.yaml
+
+      - name: Assert identical diff
+        if: inputs.mode == 'full'
+        env:
+          CHANGED: ${{ steps.diff-identical.outputs.changed }}
+          IDENTICAL: ${{ steps.diff-identical.outputs.identical }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CHANGED" == "false" ]]
+          [[ "$IDENTICAL" == "1" ]]
+
+      - name: Apply changed JSON
+        if: inputs.mode == 'full'
+        id: apply-updated
+        uses: f5-sales-demo/xcsh-action@97ff16f0ce33db6535a16cfe008b71980580ed38 # v1.0.1
+        env:
+          XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+        with:
+          operation: apply
+          files: tests/uat/healthcheck-apply.json
+
+      - name: Assert updated apply
+        if: inputs.mode == 'full'
+        env:
+          CHANGED: ${{ steps.apply-updated.outputs.changed }}
+          UPDATED: ${{ steps.apply-updated.outputs.updated }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CHANGED" == "true" ]]
+          [[ "$UPDATED" == "1" ]]
+
+      - name: Diff the old YAML
+        if: inputs.mode == 'full'
+        id: diff-different
+        uses: f5-sales-demo/xcsh-action@97ff16f0ce33db6535a16cfe008b71980580ed38 # v1.0.1
+        env:
+          XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+        with:
+          operation: diff
+          files: tests/uat/healthcheck-base.yaml
+
+      - name: Assert different diff
+        if: inputs.mode == 'full'
+        env:
+          CHANGED: ${{ steps.diff-different.outputs.changed }}
+          DIFFERENT: ${{ steps.diff-different.outputs.different }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CHANGED" == "true" ]]
+          [[ "$DIFFERENT" == "1" ]]
+
+      - name: Dry-run explicit update
+        if: inputs.mode == 'full'
+        id: update-dry-run
+        uses: f5-sales-demo/xcsh-action@97ff16f0ce33db6535a16cfe008b71980580ed38 # v1.0.1
+        env:
+          XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+        with:
+          operation: update
+          files: tests/uat/nested/healthcheck-update.yaml
+          dry-run: client
+
+      - name: Assert update dry-run
+        if: inputs.mode == 'full'
+        env:
+          CHANGED: ${{ steps.update-dry-run.outputs.changed }}
+          DRY_RUN: ${{ steps.update-dry-run.outputs.dry-run }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CHANGED" == "true" ]]
+          [[ "$DRY_RUN" == "1" ]]
+
+      - name: Explicitly update from nested YAML
+        if: inputs.mode == 'full'
+        id: update
+        uses: f5-sales-demo/xcsh-action@97ff16f0ce33db6535a16cfe008b71980580ed38 # v1.0.1
+        env:
+          XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+        with:
+          operation: update
+          files: tests/uat/nested/healthcheck-update.yaml
+
+      - name: Assert explicit update
+        if: inputs.mode == 'full'
+        env:
+          UPDATED: ${{ steps.update.outputs.updated }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$UPDATED" == "1" ]]
+
+      - name: Export final live manifest
+        if: inputs.mode == 'full'
+        id: export
+        uses: f5-sales-demo/xcsh-action@97ff16f0ce33db6535a16cfe008b71980580ed38 # v1.0.1
+        env:
+          XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+        with:
+          operation: export
+          resource-kind: healthcheck
+          resource-name: xcsh-action-uat-healthcheck
+          output: json
+          export-file: .uat/exported-healthcheck.json
+          result-file: .uat/export-report.json
+
+      - name: Assert exported fields
+        if: inputs.mode == 'full'
+        env:
+          EXPORTED: ${{ steps.export.outputs.exported }}
+          REPORT: ${{ steps.export.outputs.result-file }}
+          UAT_SCOPE: ${{ vars.XCSH_NAMESPACE }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPORTED" == "1" ]]
+          jq -e '.operation == "export" and .success == true and .counts.exported == 1' "$REPORT" >/dev/null
+          jq -e --arg namespace "$UAT_SCOPE" '
+            .kind == "healthcheck" and
+            .metadata.name == "xcsh-action-uat-healthcheck" and
+            .metadata.namespace == $namespace and
+            .spec.http_health_check.path == "/health" and
+            .spec.timeout == 7
+          ' .uat/exported-healthcheck.json >/dev/null
+
+      - name: List healthchecks with the installed CLI
+        if: inputs.mode == 'full'
+        env:
+          CLI: ${{ steps.install.outputs.xcsh-path }}
+          XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          report="$RUNNER_TEMP/list.json"
+          "$CLI" get "$UAT_KIND" -o wide --result-file "$report" >/dev/null
+          jq -e '.operation == "get" and .success == true and .counts.listed >= 1' "$report" >/dev/null
+
+      - name: Dry-run delete by manifest
+        if: inputs.mode == 'full'
+        id: delete-dry-run
+        uses: f5-sales-demo/xcsh-action@97ff16f0ce33db6535a16cfe008b71980580ed38 # v1.0.1
+        env:
+          XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+        with:
+          operation: delete
+          files: tests/uat/healthcheck-base.yaml
+          dry-run: client
+
+      - name: Assert delete dry-run and continued presence
+        if: inputs.mode == 'full'
+        env:
+          CLI: ${{ steps.install.outputs.xcsh-path }}
+          DRY_RUN: ${{ steps.delete-dry-run.outputs.dry-run }}
+          XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$DRY_RUN" == "1" ]]
+          report="$RUNNER_TEMP/after-delete-dry-run.json"
+          "$CLI" get "$UAT_KIND" "$UAT_NAME" -o table --result-file "$report" >/dev/null
+          jq -e '.success == true and .counts.found == 1' "$report" >/dev/null
+
+      - name: Delete by manifest
+        if: inputs.mode == 'full'
+        id: delete-file
+        uses: f5-sales-demo/xcsh-action@97ff16f0ce33db6535a16cfe008b71980580ed38 # v1.0.1
+        env:
+          XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+        with:
+          operation: delete
+          files: tests/uat/healthcheck-base.yaml
+
+      - name: Assert manifest deletion and absence
+        if: inputs.mode == 'full'
+        env:
+          CLI: ${{ steps.install.outputs.xcsh-path }}
+          DELETED: ${{ steps.delete-file.outputs.deleted }}
+          XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$DELETED" == "1" ]]
+          report="$RUNNER_TEMP/after-file-delete.json"
+          set +e
+          "$CLI" get "$UAT_KIND" "$UAT_NAME" -o table --result-file "$report" >/dev/null
+          status=$?
+          set -e
+          [[ $status -ne 0 ]]
+          jq -e '.results[0].error.kind == "not_found"' "$report" >/dev/null
+
+      - name: Apply while absent
+        if: inputs.mode == 'full'
+        id: apply-created
+        uses: f5-sales-demo/xcsh-action@97ff16f0ce33db6535a16cfe008b71980580ed38 # v1.0.1
+        env:
+          XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+        with:
+          operation: apply
+          files: tests/uat/healthcheck-base.yaml
+
+      - name: Assert apply created
+        if: inputs.mode == 'full'
+        env:
+          CREATED: ${{ steps.apply-created.outputs.created }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CREATED" == "1" ]]
+
+      - name: Delete by resource identity
+        if: inputs.mode == 'full'
+        id: delete-identity
+        uses: f5-sales-demo/xcsh-action@97ff16f0ce33db6535a16cfe008b71980580ed38 # v1.0.1
+        env:
+          XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+        with:
+          operation: delete
+          resource-kind: healthcheck
+          resource-name: xcsh-action-uat-healthcheck
+
+      - name: Assert identity deletion
+        if: inputs.mode == 'full'
+        env:
+          DELETED: ${{ steps.delete-identity.outputs.deleted }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$DELETED" == "1" ]]
+
+      - name: Guarded cleanup and final absence proof
+        if: always()
+        env:
+          CLI: ${{ steps.install.outputs.xcsh-path }}
+          MODE: ${{ inputs.mode }}
+          XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$MODE" != "cleanup-only" && "$SAFE_TO_CLEANUP" != "true" ]]; then
+            echo "Cleanup skipped because this run did not establish ownership"
+            exit 0
+          fi
+          if [[ -z "${CLI:-}" || ! -x "$CLI" ]]; then
+            echo "::error::xcsh is unavailable for required cleanup"
+            exit 1
+          fi
+
+          probe="$RUNNER_TEMP/cleanup-probe.json"
+          set +e
+          "$CLI" get "$UAT_KIND" "$UAT_NAME" -o table --result-file "$probe" >/dev/null
+          get_status=$?
+          set -e
+
+          if [[ $get_status -eq 0 ]]; then
+            delete_report="$RUNNER_TEMP/cleanup-delete.json"
+            "$CLI" delete "$UAT_KIND" "$UAT_NAME" -o table --result-file "$delete_report" >/dev/null
+            jq -e '.success == true and .counts.deleted == 1' "$delete_report" >/dev/null
+          else
+            jq -e '.results[0].error.kind == "not_found"' "$probe" >/dev/null
+          fi
+
+          final_report="$RUNNER_TEMP/cleanup-final.json"
+          set +e
+          "$CLI" get "$UAT_KIND" "$UAT_NAME" -o table --result-file "$final_report" >/dev/null
+          final_status=$?
+          set -e
+          [[ $final_status -ne 0 ]]
+          jq -e '.results[0].error.kind == "not_found"' "$final_report" >/dev/null
+          echo "Verified final absence of $UAT_KIND/$UAT_NAME"
