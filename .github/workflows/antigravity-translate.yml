@@ -1,0 +1,42 @@
+---
+# Governed exact-head caller. Only the trusted docs-control orchestrator dispatches it.
+name: Antigravity Language Translation
+run-name: Antigravity translation PR ${{ inputs.pr_number }} @ ${{ inputs.expected_head_sha }}
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number
+        required: true
+        type: string
+      expected_base_sha:
+        description: Exact pull-request base SHA
+        required: true
+        type: string
+      expected_head_sha:
+        description: Exact pull-request head SHA
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.pr_number }}-${{ inputs.expected_head_sha }}
+  cancel-in-progress: true
+
+jobs:
+  translate:
+    if: vars.TRANSLATIONS_ENABLED == 'true'
+    uses: f5-sales-demo/docs-control/.github/workflows/antigravity-translate.yml@c6cfbd79d66d4632a2bfd89d5da83bb3f9019a95
+    with:
+      pr_number: ${{ inputs.pr_number }}
+      expected_base_sha: ${{ inputs.expected_base_sha }}
+      expected_head_sha: ${{ inputs.expected_head_sha }}
+    permissions:
+      contents: read
+      pull-requests: read # verify the exact pull-request head before publication
+    secrets:
+      ANTIGRAVITY_TOKEN: ${{ secrets.ANTIGRAVITY_TOKEN }}
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      AUTOMATION_APP_ID: ${{ secrets.AUTOMATION_APP_ID }}
+      AUTOMATION_APP_PRIVATE_KEY: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
