@@ -1,0 +1,33 @@
+---
+title: Guides
+description: Build secure GitHub workflows and use every deterministic xcsh manifest operation.
+sidebar:
+  order: 2
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+Use these guides to move from a single validation job to controlled resource lifecycle automation.
+
+<CardGrid>
+  <Card title="Workflow patterns" icon="setting">
+    Separate untrusted validation from authenticated deployment, use path filters, select xcsh versions, and consume Action outputs.
+
+    [Build workflows](./workflows/)
+  </Card>
+  <Card title="Manifest operations" icon="document">
+    Apply, create, update, read, compare, export, validate, and delete resources through files or explicit identities.
+
+    [Run operations](./operations/)
+  </Card>
+  <Card title="Security" icon="shield-check">
+    Protect credentials, verify the installed tool, isolate process arguments, and handle result data safely.
+
+    [Review the security model](./security/)
+  </Card>
+  <Card title="Troubleshooting" icon="information">
+    Diagnose file discovery, input conflicts, authentication, GitHub API limits, differences, and cleanup failures.
+
+    [Resolve common problems](./troubleshooting/)
+  </Card>
+</CardGrid>

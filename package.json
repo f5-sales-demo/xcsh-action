@@ -24,6 +24,7 @@
     "@types/node": "24.13.3",
     "@vercel/ncc": "0.44.1",
     "tsx": "4.23.5",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "yaml": "2.9.0"
   }
 }

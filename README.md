@@ -89,7 +89,7 @@ Authenticated operations use only the direct xcsh environment contract:
 - `api-token` is masked and becomes `XCSH_API_TOKEN`.
 - `namespace` becomes both the `-n` override and `XCSH_NAMESPACE`.
 
-The same environment variables may be set on the step instead of using inputs. `validate` is fully local. See [docs/security.md](docs/security.md) before adding credentials to a workflow.
+The same environment variables may be set on the step instead of using inputs. `validate` is fully local. See the [security guide](docs/en/guides/security.mdx) before adding credentials to a workflow.
 
 ## Version and integrity policy
 
@@ -130,7 +130,7 @@ The step fails when xcsh reports an error. `diff` reports differences through `c
 
 ## kubectl parity
 
-The command design follows the useful file-oriented behavior of `kubectl apply`, `create`, `replace`, `get`, `delete`, and `diff`, adapted to the F5 Distributed Cloud resource model. Kubernetes-only mechanisms such as Kustomize, label selectors, pruning, server-side apply field ownership, and cluster contexts are not emulated. The detailed comparison and source links are in [docs/kubectl-parity.md](docs/kubectl-parity.md).
+The command design follows the useful file-oriented behavior of `kubectl apply`, `create`, `replace`, `get`, `delete`, and `diff`, adapted to the F5 Distributed Cloud resource model. Kubernetes-only mechanisms such as Kustomize, label selectors, pruning, server-side apply field ownership, and cluster contexts are not emulated. The detailed comparison and source links are in the [kubectl parity reference](docs/en/reference/kubectl-parity.mdx).
 
 ## Supported runners
 

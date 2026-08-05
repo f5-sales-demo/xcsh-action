@@ -1,0 +1,94 @@
+---
+title: Live CRUD UAT
+description: Verify the released xcsh Marketplace Action against one isolated health check in an existing lab namespace.
+sidebar:
+  order: 2
+---
+
+import { Aside, Card, CardGrid, Steps } from '@astrojs/starlight/components';
+
+The live UAT verifies the released Marketplace Action and its installed xcsh executable against one isolated health check in an authorized F5 Distributed Cloud lab namespace. Every operation is a deterministic CLI and API operation without an LLM turn.
+
+<Aside type="danger" title="Never delete the namespace">
+  The namespace must already exist and remains in place after every test. UAT creates, updates, reads, and deletes only the fixed health-check resource.
+</Aside>
+
+## GitHub environment
+
+Create an environment named `se-uat` and restrict it to protected branches. The workflow rejects every ref other than `main` and has no automatic trigger.
+
+Configure these environment values:
+
+| Type | Name | Purpose |
+| --- | --- | --- |
+| Variable | `XCSH_API_URL` | F5 Distributed Cloud API base URL |
+| Variable | `XCSH_NAMESPACE` | Existing authorized UAT namespace |
+| Secret | `XCSH_API_TOKEN` | Short-lived token scoped for resource CRUD |
+
+The console user name and password are not used and must not be stored. Enter the token through the GitHub CLI protected prompt rather than placing it on a command line:
+
+```sh
+gh secret set XCSH_API_TOKEN --repo f5-sales-demo/xcsh-action --env se-uat
+```
+
+## Test identity
+
+The workflow has one fixed identity:
+
+```text
+healthcheck/xcsh-action-uat-healthcheck
+```
+
+`XCSH_NAMESPACE` scopes the health-check API calls. The workflow never creates, updates, or deletes the namespace.
+
+## Full matrix
+
+<CardGrid>
+  <Card title="Manifest forms" icon="document">
+    Validate YAML, JSON, recursive file discovery, globs, and inline content.
+  </Card>
+  <Card title="Lifecycle" icon="setting">
+    Exercise create, get, list, unchanged apply, changed apply, diff, update, export, and both delete identity forms.
+  </Card>
+  <Card title="Safety" icon="approve-check">
+    Check client dry runs, duplicate-create failure, pre-existing-resource refusal, and always-run fixed-identity cleanup.
+  </Card>
+  <Card title="Distribution" icon="rocket">
+    Exercise the Action's locked xcsh release and an exact version override through the published Marketplace release.
+  </Card>
+</CardGrid>
+
+Dispatch the full matrix from `main`:
+
+```sh
+gh workflow run live-uat.yml \
+  --repo f5-sales-demo/xcsh-action \
+  --ref main \
+  -f mode=full
+```
+
+<Steps>
+
+1. The workflow proves that the fixed identity is absent.
+2. Only then does it mark that identity safe for always-run cleanup.
+3. It performs the CRUD and comparison matrix and validates every typed result.
+4. It deletes the health check and verifies final absence.
+
+</Steps>
+
+If the resource already exists, the run fails without deleting it.
+
+## Recovery
+
+After confirming that a leftover resource belongs to this UAT, dispatch cleanup-only:
+
+```sh
+gh workflow run live-uat.yml \
+  --repo f5-sales-demo/xcsh-action \
+  --ref main \
+  -f mode=cleanup-only
+```
+
+Cleanup-only succeeds whether the fixed resource is present or already absent. It never targets another name or kind and deliberately does not exercise `export all`, which would enumerate unrelated namespace resources.
+
+Use a short-lived lab token. Remove the environment secret and revoke or rotate the token after UAT, especially if it has appeared in chat, terminal history, or any other non-secret channel.

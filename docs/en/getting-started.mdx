@@ -1,0 +1,124 @@
+---
+title: Getting Started
+description: Validate and apply your first F5 Distributed Cloud manifest with the xcsh Action.
+sidebar:
+  order: 1
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+This guide starts with credential-free validation and then adds a protected deployment. You need a GitHub repository, an F5 Distributed Cloud API URL, an API token scoped to the target resources, and an existing XC namespace.
+
+<Aside type="caution" title="Use an existing namespace">
+  The Action operates on resources inside a namespace. It does not create or delete the namespace itself.
+</Aside>
+
+## Prepare a manifest
+
+Create `manifests/healthcheck.yaml`:
+
+```yaml
+kind: healthcheck
+metadata:
+  name: example-healthcheck
+spec:
+  http_health_check:
+    path: /health
+  interval: 15
+  timeout: 3
+  unhealthy_threshold: 3
+  healthy_threshold: 2
+```
+
+The `namespace` Action input can supply or override the manifest namespace, which keeps the same manifest reusable across environments.
+
+## Validate pull requests
+
+<Steps>
+
+1. **Create the workflow.** Save this file as `.github/workflows/validate-manifests.yml`.
+
+   ```yaml
+   name: Validate XC manifests
+
+   on:
+     pull_request:
+       paths: ["manifests/**"]
+
+   permissions:
+     contents: read
+
+   jobs:
+     validate:
+       runs-on: ubuntu-latest
+       steps:
+         - uses: actions/checkout@v7
+           with:
+             persist-credentials: false
+         - name: Validate manifests
+           uses: f5-sales-demo/xcsh-action@v1
+           with:
+             operation: validate
+             files: manifests/
+             recursive: true
+   ```
+
+2. **Open a pull request.** The job resolves every JSON and YAML document before it performs local schema and manifest validation.
+3. **Review the result.** A successful job proves that the batch is readable and structurally valid. It does not prove that tenant credentials or permissions are valid.
+
+</Steps>
+
+## Configure protected deployment
+
+Create a GitHub environment such as `xc-production`. Restrict it to trusted branches and configure these values:
+
+| Type | Name | Purpose |
+| --- | --- | --- |
+| Environment variable | `XCSH_API_URL` | F5 Distributed Cloud API base URL |
+| Environment variable | `XCSH_NAMESPACE` | Existing namespace that owns the resources |
+| Environment secret | `XCSH_API_TOKEN` | Token scoped to the required resource operations |
+
+Do not store a console password or user name. The Action authenticates with the API URL and token only.
+
+## Apply after merge
+
+Add a second workflow that runs only on the protected default branch:
+
+```yaml title=".github/workflows/apply-manifests.yml"
+name: Apply XC manifests
+
+on:
+  push:
+    branches: [main]
+    paths: ["manifests/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    environment: xc-production
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Apply manifests
+        id: xcsh
+        uses: f5-sales-demo/xcsh-action@v1
+        env:
+          XCSH_API_URL: ${{ vars.XCSH_API_URL }}
+          XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+          XCSH_NAMESPACE: ${{ vars.XCSH_NAMESPACE }}
+        with:
+          operation: apply
+          files: manifests/
+          recursive: true
+      - name: Report whether resources changed
+        env:
+          CHANGED: ${{ steps.xcsh.outputs.changed }}
+          SUCCEEDED: ${{ steps.xcsh.outputs.succeeded }}
+        run: echo "changed=${CHANGED} succeeded=${SUCCEEDED}"
+```
+
+Continue with [workflow patterns](../guides/workflows/) or compare each operation in the [Action reference](../reference/action/).

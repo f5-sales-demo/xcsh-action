@@ -1,0 +1,58 @@
+---
+title: Design and Architecture
+description: How xcsh Manifest Automation installs trusted tooling and adapts deterministic CLI results to GitHub Actions.
+sidebar:
+  order: 1
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+The Action is intentionally a small installer and process adapter around xcsh's deterministic resource CLI. It does not reproduce resource CRUD logic, authenticate an AI provider, or translate manifests through a model.
+
+## Responsibilities
+
+<CardGrid>
+  <Card title="Action" icon="setting">
+    Read and validate workflow inputs, resolve manifest files, install and verify xcsh, isolate process execution, and publish GitHub outputs.
+  </Card>
+  <Card title="xcsh" icon="document">
+    Parse and prevalidate manifests, resolve XC API paths, authenticate to the tenant, perform resource operations, and write the aggregate report.
+  </Card>
+</CardGrid>
+
+## Execution flow
+
+```text
+workflow inputs
+    |
+    +-- resolve files, globs, directories, or inline content
+    +-- validate operation-specific combinations
+    |
+xcsh.lock.json or exact release metadata
+    |
+    +-- select the platform asset
+    +-- verify the archive SHA-256
+    +-- extract and verify the executable SHA-256
+    +-- cache the verified executable
+    |
+spawn xcsh with shell: false
+    |
+    +-- stream normal CLI output
+    +-- parse the aggregate result JSON
+    +-- publish outputs and the job summary
+```
+
+The aggregate report is the contract between xcsh and the Action. Resource behavior remains covered upstream in the [`f5-sales-demo/xcsh`](https://github.com/f5-sales-demo/xcsh) repository. This repository tests platform resolution, digest enforcement, argument construction, process isolation, report parsing, and the bundled Action entry point.
+
+## Comparable Actions
+
+- [`Azure/setup-kubectl`](https://github.com/Azure/setup-kubectl) demonstrates platform-specific kubectl installation for later workflow steps.
+- [`hashicorp/setup-terraform`](https://github.com/hashicorp/setup-terraform) demonstrates a versioned CLI setup Action with a committed JavaScript bundle.
+- [`astral-sh/setup-uv`](https://github.com/astral-sh/setup-uv) demonstrates a cross-platform installer, tool caching, and integrity-aware release resolution.
+- [`helm/kind-action`](https://github.com/helm/kind-action) demonstrates safe invocation of a Kubernetes-oriented CLI from a JavaScript Action.
+
+The xcsh Action additionally pins both archive and standalone-executable digests. It verifies the archive before extraction and the executable before every run, including cache hits.
+
+## Failure boundaries
+
+The Action fails before mutation when inputs conflict, files cannot be resolved, a manifest is malformed, a digest cannot be verified, the executable report is invalid, or xcsh reports a resource error. A successful `diff` may still set `changed: true`; drift is data rather than an execution failure.

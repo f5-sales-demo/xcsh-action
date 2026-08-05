@@ -1,0 +1,89 @@
+---
+title: xcsh Manifest Automation
+description: Deterministic F5 Distributed Cloud manifest operations for GitHub Actions.
+hero:
+  tagline: Validate, compare, apply, and remove F5 Distributed Cloud resources from version-controlled JSON and YAML—without an LLM turn.
+  image:
+    html: '<img src="/xcsh-action/images/hero.svg" alt="" aria-hidden="true" />'
+sidebar:
+  hidden: true
+  order: 0
+---
+
+import { Aside, Badge, Card, CardGrid, Steps } from '@astrojs/starlight/components';
+import LinkCard from '@f5-sales-demo/docs-theme/components/LinkCard.astro';
+
+<Badge text="No LLM turn" variant="success" /> <Badge text="SHA-256 verified" variant="tip" /> <Badge text="Cross-platform" variant="note" />
+
+The xcsh Action turns a manifest commit into a direct F5 Distributed Cloud API operation. GitHub Actions checks out your repository, the Action installs a pinned and verified `xcsh` release, and `xcsh` executes the requested operation against your tenant.
+
+<CardGrid>
+  <Card title="Declarative workflows" icon="document">
+    Keep desired resources in Git and use `apply` to create missing resources, update changed resources, and preserve identical resources.
+  </Card>
+  <Card title="Safe pull requests" icon="shield-check">
+    Run local `validate` jobs without XC credentials, then reserve authenticated mutation for protected branches and environments.
+  </Card>
+  <Card title="Automation outputs" icon="seti:json">
+    Gate later steps with stable counts for created, updated, unchanged, deleted, different, valid, and failed resources.
+  </Card>
+  <Card title="Verified tooling" icon="approve-check">
+    Install an exact xcsh build and verify both its release archive and executable before every run, including cache hits.
+  </Card>
+</CardGrid>
+
+## From commit to F5 XC
+
+<Steps>
+
+1. **Commit a manifest.** Store one or more JSON or YAML resource declarations in the repository.
+2. **Trigger a workflow.** Use a path filter so validation or deployment runs only when manifests change.
+3. **Run xcsh.** The Action resolves the files, validates the full batch, and invokes `xcsh` directly with `shell: false`.
+4. **Inspect the result.** Read typed Action outputs or the aggregate JSON report without parsing terminal text.
+
+</Steps>
+
+```yaml title=".github/workflows/apply.yml"
+name: Apply XC manifests
+
+on:
+  push:
+    branches: [main]
+    paths: ["manifests/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    environment: xc-production
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Apply committed manifests
+        id: xcsh
+        uses: f5-sales-demo/xcsh-action@v1
+        env:
+          XCSH_API_URL: ${{ vars.XCSH_API_URL }}
+          XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+          XCSH_NAMESPACE: ${{ vars.XCSH_NAMESPACE }}
+        with:
+          operation: apply
+          files: manifests/
+          recursive: true
+```
+
+<Aside type="tip" title="Start without credentials">
+  The `validate` operation is local. Add it to pull requests before you configure an XC token or enable deployment.
+</Aside>
+
+## Choose your next step
+
+<CardGrid>
+  <LinkCard icon="lucide:rocket" title="Getting started" href="./getting-started/" />
+  <LinkCard icon="carbon:workflow-automation" title="Workflow guides" href="./guides/" />
+  <LinkCard icon="lucide:book-open" title="Action reference" href="./reference/" />
+  <LinkCard icon="lucide:blocks" title="Design and UAT" href="./concepts/" />
+</CardGrid>

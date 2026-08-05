@@ -1,0 +1,120 @@
+---
+title: Manifest Operations
+description: Use deterministic xcsh create, read, update, delete, compare, export, and validation commands.
+sidebar:
+  order: 2
+---
+
+import { Aside, TabItem, Tabs } from '@astrojs/starlight/components';
+
+Every operation invokes the ordinary xcsh resource CLI directly. No command starts the AI assistant or consumes an LLM turn.
+
+<Tabs syncKey="operation">
+  <TabItem label="apply">
+    Create a missing resource, update a changed resource, and preserve an identical resource:
+
+    ```yaml
+    - uses: f5-sales-demo/xcsh-action@v1
+      env:
+        XCSH_API_URL: ${{ vars.XCSH_API_URL }}
+        XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+        XCSH_NAMESPACE: ${{ vars.XCSH_NAMESPACE }}
+      with:
+        operation: apply
+        files: manifests/
+        recursive: true
+    ```
+  </TabItem>
+  <TabItem label="create/update">
+    Use `create` when the resource must not exist, or `update` when it must already exist:
+
+    ```yaml
+    with:
+      operation: create
+      files: manifests/healthcheck.yaml
+      dry-run: client
+    ```
+
+    Duplicate creation and update of a missing resource fail rather than changing the requested contract.
+  </TabItem>
+  <TabItem label="diff/validate">
+    Compare desired state with the tenant, or validate entirely locally:
+
+    ```yaml
+    with:
+      operation: diff
+      files: manifests/
+      recursive: true
+      output: table
+    ```
+
+    `diff` reports `new`, `different`, or `identical`. `validate` requires no XC credentials.
+  </TabItem>
+  <TabItem label="get/export">
+    Read by manifest identity or explicit resource identity:
+
+    ```yaml
+    with:
+      operation: get
+      resource-kind: healthcheck
+      resource-name: example-healthcheck
+      output: yaml
+    ```
+
+    `export` removes live-only fields and writes reusable manifests:
+
+    ```yaml
+    with:
+      operation: export
+      resource-kind: healthcheck
+      resource-name: example-healthcheck
+      export-file: exported/healthcheck.yaml
+    ```
+  </TabItem>
+  <TabItem label="delete">
+    Delete by manifest identity or an explicit kind and name:
+
+    ```yaml
+    with:
+      operation: delete
+      resource-kind: healthcheck
+      resource-name: example-healthcheck
+      dry-run: client
+    ```
+
+    Automation is non-interactive. Protect deletion with a trusted branch, environment policy, and narrowly scoped token.
+  </TabItem>
+</Tabs>
+
+## Operation behavior
+
+| Operation | Required resource selector | Expected result |
+| --- | --- | --- |
+| `apply` | `files` or `manifest` | Create, update, or preserve each resource |
+| `create` | `files` or `manifest` | Create resources and fail when one exists |
+| `update` | `files` or `manifest` | Update resources and fail when one is absent |
+| `get` | Manifests, or `resource-kind` and optional `resource-name` | Read one resource or list a kind |
+| `delete` | Manifests, or `resource-kind` and `resource-name` | Delete without an interactive confirmation |
+| `diff` | `files` or `manifest` | Report desired/live differences without mutation |
+| `export` | `resource-kind`, or `all: true` | Emit reusable manifests from live resources |
+| `validate` | `files` or `manifest` | Validate locally without XC credentials |
+
+## Dry runs
+
+`dry-run: client` is available for `apply`, `create`, `update`, and `delete`. It calculates the supported mutation without changing the tenant. Server-side dry-run is not available.
+
+<Aside type="tip" title="Prevalidate the complete batch">
+  xcsh parses and validates every manifest before the first network operation. One malformed document stops the batch before a partial apply, create, update, or delete can begin.
+</Aside>
+
+## Output formats and reports
+
+`output: auto` selects table output for most operations and YAML for `export`. Explicit choices are `json`, `yaml`, `table`, and `wide`; export accepts only JSON or YAML.
+
+The Action always requests its stable aggregate JSON report. Set `result-file` to copy that report under `working-directory`, and use typed outputs for ordinary workflow conditions. Result and export files can contain live configuration, so do not print them to public logs.
+
+## Namespace handling
+
+The `namespace` input overrides the namespace in every manifest and also sets `XCSH_NAMESPACE` for the process. This is an XC namespace, not a Kubernetes namespace or kubeconfig context.
+
+See the [complete Action reference](../../reference/action/) for input combinations and every output.
