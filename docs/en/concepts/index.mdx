@@ -1,0 +1,21 @@
+---
+title: Concepts
+description: Understand the Action architecture, prior art, trust boundaries, and live CRUD acceptance test.
+sidebar:
+  order: 4
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<CardGrid>
+  <Card title="Design and architecture" icon="puzzle">
+    See how the Action resolves inputs, verifies xcsh, isolates the process, and converts the aggregate report into GitHub outputs.
+
+    [Explore the design](./design/)
+  </Card>
+  <Card title="Live CRUD UAT" icon="approve-check">
+    Exercise the released Marketplace Action against one isolated health check without creating or deleting the existing namespace.
+
+    [Run the acceptance test](./live-uat/)
+  </Card>
+</CardGrid>

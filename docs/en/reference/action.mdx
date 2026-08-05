@@ -1,0 +1,114 @@
+---
+title: Action Reference
+description: Complete operation, input, output, authentication, and constraint reference for xcsh Manifest Automation.
+sidebar:
+  order: 1
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The Action resolves manifests, installs a verified xcsh executable, invokes one deterministic operation, and publishes a stable aggregate report. Every identifier in this page is tested against `action.yml` to prevent documentation drift.
+
+## Operations
+
+| Operation | Manifest or identity requirement | Behavior |
+| --- | --- | --- |
+| `apply` | `files` or `manifest` | Creates missing resources, updates changed resources, and preserves identical resources |
+| `create` | `files` or `manifest` | Creates resources and fails when a target already exists |
+| `update` | `files` or `manifest` | Updates resources and fails when a target does not exist |
+| `get` | Manifests, or `resource-kind` with optional `resource-name` | Reads one resource or lists a resource kind |
+| `delete` | Manifests, or `resource-kind` and `resource-name` | Deletes resources without an interactive confirmation |
+| `diff` | `files` or `manifest` | Compares desired and live resources without mutation |
+| `export` | `resource-kind`, or `all: true` | Writes reusable manifests from live resources |
+| `validate` | `files` or `manifest` | Validates locally without XC credentials |
+
+## Inputs
+
+| Input | Default | Description |
+| --- | --- | --- |
+| `operation` | `apply` | One of `apply`, `create`, `update`, `get`, `delete`, `diff`, `export`, or `validate` |
+| `files` | — | Newline-delimited manifest files, directories, or include globs |
+| `manifest` | — | Inline JSON or YAML manifest content |
+| `recursive` | `false` | Recursively read manifest directories |
+| `namespace` | — | Override the namespace in every manifest and set `XCSH_NAMESPACE` |
+| `dry-run` | `none` | Use `client` to calculate a supported mutation without changing a resource |
+| `output` | `auto` | `auto`, `json`, `yaml`, `table`, or `wide`; auto uses YAML for export and table otherwise |
+| `result-file` | — | Copy the aggregate JSON report to this path under `working-directory` |
+| `export-file` | — | Write exported manifests to this path under `working-directory` |
+| `resource-kind` | — | Resource kind for a file-free `get`, `delete`, or `export` |
+| `resource-name` | — | Resource name for a targeted `get`, `delete`, or `export` |
+| `all` | `false` | Export every supported resource kind |
+| `working-directory` | `.` | Base directory used to resolve relative paths |
+| `xcsh-version` | `locked` | Locked release or an exact version such as `v20.4.0` |
+| `api-url` | — | F5 Distributed Cloud API base URL; sets `XCSH_API_URL` |
+| `api-token` | — | F5 Distributed Cloud API token; masked and passed as `XCSH_API_TOKEN` |
+| `github-token` | — | GitHub token used only to resolve digests for an xcsh version override |
+
+## Outputs
+
+All numeric outputs are serialized as strings by GitHub Actions.
+
+| Output | Description |
+| --- | --- |
+| `result` | Compact aggregate xcsh report JSON |
+| `result-file` | Absolute path to the aggregate report JSON file |
+| `total` | Total result count |
+| `succeeded` | Successful result count |
+| `failed` | Failed result count |
+| `changed` | `true` when a mutation occurred or diff detected a difference |
+| `created` | Created resource count |
+| `updated` | Updated resource count |
+| `unchanged` | Unchanged resource count |
+| `deleted` | Deleted resource count |
+| `dry-run` | Dry-run resource count |
+| `new` | New resource count reported by diff |
+| `different` | Different resource count reported by diff |
+| `identical` | Identical resource count reported by diff |
+| `valid` | Valid manifest count |
+| `found` | Found resource count |
+| `listed` | Listed resource result count |
+| `exported` | Exported manifest count |
+| `error` | Error result count |
+| `skipped` | Skipped result count |
+| `xcsh-version` | Exact installed xcsh version |
+| `xcsh-path` | Absolute path to the verified xcsh executable |
+
+## Input constraints
+
+| Condition | Result |
+| --- | --- |
+| A manifest operation has no resolved manifest | The step fails before xcsh starts |
+| Manifest files are combined with `resource-kind` or `resource-name` | The step fails because selector forms are mutually exclusive |
+| File-free `get` has no `resource-kind` | The step fails |
+| File-free `delete` omits either identity value | The step fails |
+| `export` combines `all` with `resource-kind` | The step fails because exactly one selector is required |
+| `export` receives manifests | The step fails |
+| A non-export operation receives `all` or `export-file` | The step fails |
+| An unsupported operation receives `dry-run: client` | The step fails |
+| Export selects table or wide output | The step fails because export requires JSON or YAML |
+
+## Authentication
+
+The input contract maps directly to xcsh environment variables:
+
+| Action input | xcsh environment variable |
+| --- | --- |
+| `api-url` | `XCSH_API_URL` |
+| `api-token` | `XCSH_API_TOKEN` |
+| `namespace` | `XCSH_NAMESPACE` plus the `-n` command option |
+
+The same environment variables may be set on the Action step instead. No AI provider credential, kubeconfig, console user name, or console password is used.
+
+## File behavior
+
+- JSON objects, JSON arrays, YAML documents, and multi-document YAML are supported.
+- Each `files` line may be a file, directory, or include glob.
+- `recursive: true` traverses nested directories.
+- Inline `manifest` content is written to a temporary file.
+- Duplicate matches are de-duplicated.
+- The complete batch is parsed and validated before a network operation.
+- File URLs and the standard-input marker `-` are intentionally unsupported.
+
+<Aside type="note" title="Stable result contract">
+  Normal terminal output is for people. Automation should consume the typed outputs or aggregate JSON report, whose operation and count fields are validated before the step succeeds.
+</Aside>

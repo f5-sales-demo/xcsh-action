@@ -1,0 +1,81 @@
+---
+title: Troubleshooting
+description: Diagnose common xcsh Action configuration, file, authentication, integrity, and result problems.
+sidebar:
+  order: 4
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+## No manifests were found
+
+Confirm that the repository was checked out, `working-directory` points inside `GITHUB_WORKSPACE`, and each `files` line matches JSON or YAML content. Directory traversal is shallow unless `recursive: true` is set.
+
+```yaml
+- uses: actions/checkout@v7
+  with:
+    persist-credentials: false
+- uses: f5-sales-demo/xcsh-action@v1
+  with:
+    operation: validate
+    working-directory: deployment
+    files: manifests/
+    recursive: true
+```
+
+The Action does not accept a URL or `-` as a file entry. Commit the file or use `manifest` for inline content.
+
+## An input combination is rejected
+
+The Action validates operation-specific constraints before installing or running xcsh:
+
+- `apply`, `create`, `update`, `diff`, and `validate` require at least one manifest.
+- `resource-kind` and `resource-name` cannot be combined with manifest files.
+- File-free `delete` requires both `resource-kind` and `resource-name`.
+- `export` requires exactly one of `resource-kind` or `all: true` and does not accept manifests.
+- `all` and `export-file` are valid only for `export`.
+- `dry-run: client` is valid only for `apply`, `create`, `update`, and `delete`.
+
+Compare the workflow with the [input reference](../../reference/action/#inputs).
+
+## Authentication fails
+
+Verify that the API URL includes the correct tenant endpoint, the token is current, and the token can operate on the selected resource kind and namespace. The Action does not use a console user name or password.
+
+If the manifest contains a namespace and the workflow also sets `namespace`, the workflow value wins. Confirm that this override is intentional.
+
+## GitHub reports an API rate limit
+
+The locked xcsh version does not need a GitHub API lookup. An exact version override resolves release digests and can encounter the unauthenticated API limit. Pass the workflow token only for this lookup:
+
+```yaml
+with:
+  xcsh-version: v20.4.0
+  github-token: ${{ github.token }}
+```
+
+## A digest or download check fails
+
+Do not bypass integrity enforcement. Confirm that the requested version is an exact published release and retry a transient network failure. A missing asset, duplicate release asset, malformed digest, or hash mismatch is a hard failure by design.
+
+Use `xcsh-version: locked` to return to the Action's tested release.
+
+## Diff found changes but the step passed
+
+This is expected. Unlike `kubectl diff`, xcsh reports a difference as a successful result. Test `steps.<id>.outputs.changed`, `different`, and `new` to decide what the workflow should do next.
+
+## Create or update fails on resource state
+
+`create` fails when the resource already exists, and `update` fails when it is absent. Use `apply` when either state is valid, or keep the strict operation when the state mismatch should stop automation.
+
+## Export output is rejected
+
+Export accepts `output: json` or `output: yaml`; `auto` selects YAML. Set `export-file` to save the reusable manifest. `result-file` is separate and contains the aggregate operation report.
+
+## Cleanup did not complete
+
+Retry deletion with the same explicit kind, name, and namespace. Use `get` to verify final absence. Do not use `all: true` as a cleanup shortcut because it is an export selector and can enumerate unrelated resources.
+
+<Aside type="caution" title="Preserve the namespace">
+  Resource cleanup must target only the test resource. Never delete an existing namespace as part of Action UAT.
+</Aside>

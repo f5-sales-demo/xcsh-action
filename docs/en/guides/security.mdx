@@ -1,0 +1,64 @@
+---
+title: Security
+description: Protect credentials, manifest execution, installed tooling, and xcsh result data.
+sidebar:
+  order: 3
+---
+
+import { Aside, Card, CardGrid, Steps } from '@astrojs/starlight/components';
+
+## Keep untrusted changes credential-free
+
+Run `validate` on `pull_request` events without XC credentials. Run `apply`, `create`, `update`, or `delete` only after code reaches a protected branch or an explicitly approved deployment environment.
+
+Do not expose XC secrets through `pull_request_target`, workflows checked out from forks, command-line arguments, or manifest files. Grant the workflow only `contents: read` unless another step has a documented need for more.
+
+<CardGrid>
+  <Card title="Least privilege" icon="approve-check">
+    Scope the XC API token to the target namespace and resource operations. Use a separate token and protected environment for each deployment boundary.
+  </Card>
+  <Card title="Explicit inputs" icon="document">
+    Commit manifests or provide an inline declaration. The Action does not fetch manifest URLs or interpret standard input as a manifest source.
+  </Card>
+  <Card title="Isolated execution" icon="setting">
+    xcsh is spawned directly with `shell: false`; file paths and values remain distinct process arguments and shell metacharacters are never evaluated.
+  </Card>
+  <Card title="Controlled results" icon="information">
+    Treat get, export, and aggregate result data as configuration. Limit artifact access and retention, and avoid printing live objects in public logs.
+  </Card>
+</CardGrid>
+
+## Verify the installed tool
+
+The default xcsh version and platform digests are committed in `xcsh.lock.json`. Before execution, the Action:
+
+<Steps>
+
+1. Downloads an exact immutable release asset over HTTPS.
+2. Verifies the compressed archive or Windows executable SHA-256.
+3. Verifies the extracted executable against its separately published SHA-256.
+4. Re-verifies every executable returned from the runner tool cache.
+
+</Steps>
+
+An exact version override resolves the same two digests through GitHub release metadata. Missing, duplicate, malformed, or mismatched metadata stops the step.
+
+## Pass credentials safely
+
+The Action masks `api-token` and `github-token`. It does not include credentials in result JSON, job summaries, cache keys, or command arguments. xcsh receives tenant credentials through this environment contract:
+
+```text
+XCSH_API_URL
+XCSH_API_TOKEN
+XCSH_NAMESPACE
+```
+
+The `api-url`, `api-token`, and `namespace` inputs populate those values. You may instead configure the same environment variables on the Action step.
+
+<Aside type="danger" title="Never publish credentials">
+  Do not commit an API token, console password, user identity, or copied tenant output. Rotate a token immediately if it appears in chat, terminal history, a workflow log, or any other non-secret channel.
+</Aside>
+
+## Protect deletion
+
+`delete` is intentionally non-interactive. Use an explicit manifest or resource identity, start with `dry-run: client`, and require branch or environment controls before enabling mutation. A delete workflow must never broaden its target from user-controlled event data.

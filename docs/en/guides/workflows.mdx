@@ -1,0 +1,113 @@
+---
+title: Workflow Patterns
+description: Structure validation and deployment workflows for xcsh manifest automation.
+sidebar:
+  order: 1
+---
+
+import { Aside, Card, CardGrid, Steps } from '@astrojs/starlight/components';
+
+## Separate trust boundaries
+
+<CardGrid>
+  <Card title="Pull request" icon="edit">
+    Run `validate` with `contents: read`. Do not provide XC credentials, even when a contributor changes the workflow itself.
+  </Card>
+  <Card title="Protected deployment" icon="approve-check">
+    Run mutating operations after merge from a protected branch and GitHub environment with scoped credentials.
+  </Card>
+</CardGrid>
+
+Never combine untrusted pull request code with a privileged token through `pull_request_target`.
+
+## Resolve committed manifests
+
+The `files` input accepts newline-delimited files, directories, and include globs:
+
+```yaml
+- name: Validate every manifest format
+  uses: f5-sales-demo/xcsh-action@v1
+  with:
+    operation: validate
+    files: |
+      manifests/**/*.json
+      manifests/**/*.yaml
+      manifests/**/*.yml
+    recursive: true
+```
+
+Directory traversal is shallow unless `recursive: true` is set. Duplicate matches are de-duplicated, and the complete batch is prevalidated before a network operation starts.
+
+## Use an inline manifest
+
+Use `manifest` when a small declaration belongs directly in workflow configuration:
+
+```yaml
+- name: Validate an inline health check
+  uses: f5-sales-demo/xcsh-action@v1
+  with:
+    operation: validate
+    namespace: example
+    manifest: |
+      kind: healthcheck
+      metadata:
+        name: example-healthcheck
+      spec:
+        http_health_check:
+          path: /health
+        interval: 15
+        timeout: 3
+```
+
+The Action writes inline content to a runner temporary file. It does not interpolate it into a shell command or read it from standard input.
+
+## Gate later steps with outputs
+
+Every operation produces an aggregate JSON report plus typed counters:
+
+```yaml
+- name: Compare desired and live state
+  id: diff
+  uses: f5-sales-demo/xcsh-action@v1
+  env:
+    XCSH_API_URL: ${{ vars.XCSH_API_URL }}
+    XCSH_API_TOKEN: ${{ secrets.XCSH_API_TOKEN }}
+    XCSH_NAMESPACE: ${{ vars.XCSH_NAMESPACE }}
+  with:
+    operation: diff
+    files: manifests/
+    recursive: true
+
+- name: Require approval when drift exists
+  if: steps.diff.outputs.changed == 'true'
+  run: echo "desired state differs from live state"
+```
+
+`diff` treats a detected difference as a successful comparison. Use `changed`, `new`, and `different` instead of relying on a failing exit code.
+
+## Select an xcsh version
+
+The default `xcsh-version: locked` installs the release tested with the Action. An exact override is useful for controlled compatibility testing:
+
+```yaml
+with:
+  xcsh-version: v20.4.0
+  github-token: ${{ github.token }}
+```
+
+<Aside type="note" title="Avoid unauthenticated API limits">
+  Exact overrides resolve release digests through the GitHub API. Pass `github-token` to avoid the lower unauthenticated rate limit. Moving selectors such as `latest` are rejected.
+</Aside>
+
+## Choose a runner
+
+The Action supports Linux x64 and arm64, macOS x64 and arm64, and Windows x64. Keep the same workflow inputs across a runner matrix; the installer selects and verifies the platform-specific asset.
+
+<Steps>
+
+1. Validate manifests on pull requests without credentials.
+2. Protect the deployment environment and restrict its branches.
+3. Start with `diff` or `dry-run: client` where supported.
+4. Enable the desired mutation and inspect typed outputs.
+
+</Steps>
