@@ -28,7 +28,7 @@ jobs:
   reject-unprotected-ref:
     name: Reject an unprotected ref
     if: github.ref != 'refs/heads/main'
-    runs-on: [self-hosted, Linux, X64, xcsh-action]
+    runs-on: [self-hosted, Linux, X64, xcsh-action, ubuntu-24.04]
     steps:
       - name: Require main
         run: |
@@ -38,7 +38,7 @@ jobs:
   uat:
     name: ${{ inputs.mode == 'cleanup-only' && 'Cleanup' || 'Full CRUD matrix' }}
     if: github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, Linux, X64, xcsh-action]
+    runs-on: [self-hosted, Linux, X64, xcsh-action, ubuntu-24.04]
     environment: se-uat
     env:
       SAFE_TO_CLEANUP: "false"
