@@ -92,3 +92,5 @@ gh workflow run live-uat.yml \
 Cleanup-only succeeds whether the fixed resource is present or already absent. It never targets another name or kind and deliberately does not exercise `export all`, which would enumerate unrelated namespace resources.
 
 Use a short-lived lab token. Remove the environment secret and revoke or rotate the token after UAT, especially if it has appeared in chat, terminal history, or any other non-secret channel.
+
+<!-- Linked-issue verification marker: #148. -->
