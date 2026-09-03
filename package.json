@@ -12,7 +12,7 @@
     "build": "ncc build src/index.ts --minify --license NOTICE --out dist && node scripts/normalize-dist.mjs",
     "check-dist": "npm run build && git diff --exit-code -- dist",
     "test": "node --import tsx --test test/*.test.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "node -p \"require('@typescript/native/package.json').version\" && tsc --noEmit",
     "verify": "npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
@@ -22,9 +22,10 @@
   },
   "devDependencies": {
     "@types/node": "26.4.0",
+    "@typescript/native": "npm:typescript@7.0.2",
     "@vercel/ncc": "0.45.0",
     "tsx": "4.23.12",
-    "typescript": "5.9.3",
+    "typescript": "npm:@typescript/typescript6@6.0.2",
     "yaml": "2.9.0"
   }
 }
