@@ -6,7 +6,7 @@
   "license": "Apache-2.0",
   "type": "module",
   "engines": {
-    "node": ">=24.20.0"
+    "node": ">=24.21.0"
   },
   "scripts": {
     "build": "ncc build src/index.ts --minify --license NOTICE --out dist && node scripts/normalize-dist.mjs",
